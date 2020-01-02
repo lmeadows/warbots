@@ -14,6 +14,11 @@ extern "C" {
 }
 
 #[wasm_bindgen]
+extern "C" {
+    fn log(s: &str);
+}
+
+#[wasm_bindgen]
 pub fn greet() {
-    alert("This is WARBOTS!");
+    let s = "Hello there!";
 }
