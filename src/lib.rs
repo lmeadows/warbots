@@ -9,16 +9,25 @@ use wasm_bindgen::prelude::*;
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
-extern "C" {
-    fn alert(s: &str);
+pub struct Config {
+    width: u32,
+    height: u32,
 }
 
 #[wasm_bindgen]
-extern "C" {
-    fn log(s: &str);
-}
+impl Config {
+    pub fn new() -> Config {
+        let width = 900;
+        let height = 500;
 
-#[wasm_bindgen]
-pub fn greet() {
-    let s = "Hello there!";
+        Config { width, height }
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
 }

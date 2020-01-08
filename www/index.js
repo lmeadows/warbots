@@ -1,18 +1,29 @@
 import "./canvas.css"
-import * as wasm from "warbots";
+import { Config } from "warbots";
 
-wasm.greet();
-
+const config = Config.new();
 const canvas = document.getElementById("warbots-canvas");
+canvas.height = config.height();
+canvas.width = config.width();
 
-const TERRAIN_COLOR = "#CCCCCC";
+const TERRAIN_COLORS = [
+  "27FF00",
+  "43AB08",
+  "9D5109",
+  "EABC00",
+  "00960E",
+  "CCCCCC",
+  "FFFFFF",
+  "BAEFFF"
+]
+
+const TERRAIN_COLOR = "#" + TERRAIN_COLORS[Math.floor(Math.random() * TERRAIN_COLORS.length)]
 const CELL_SIZE = 5;
 const ctx = canvas.getContext('2d');
-//const width = universe.width();
 const height = 5;
 const width = 5;
 
-  ctx.strokeStyle = "#FFF";
+ctx.strokeStyle = TERRAIN_COLOR;
 
 // parameters - change to your liking
  var STEP_MAX = 2.5;
@@ -51,8 +62,11 @@ const width = 5;
 
 
 
-let counter = 1;
 const renderLoop = () => {
+  ctx.fillStyle="red";
+  ctx.fillRect(20, 20, 10, 10);
+  ctx.fillStyle="blue";
+  ctx.fillRect(880, 20, 10, 10);
 	requestAnimationFrame(renderLoop);
 };
 
