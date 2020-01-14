@@ -32,12 +32,9 @@ pub fn start() {
 }
 
 use rand::Rng;
-//pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, heights: [f64; 900]) {
 pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, terrain: Terrain) {
-    //let color = JsValue::from(String::from(terrain.color()));
     let color = JsValue::from(terrain.color());
     context.set_stroke_style(&color);
-    log(terrain.color());
 
     let heights = terrain.heights();
 
@@ -101,10 +98,9 @@ impl Terrain {
             heights[x] = terrain_height;
         }
 
-        //let color = JsValue::from(String::from("#0000FF"));
         let terrain_colors: Vec<String> = vec![
             "#27FF00", "#43AB08", "#9D5109", "#EABC00", "#00960E", "#CCCCCC", "#FFFFFF", "#F7CAA6",
-            "#BAEFFF", "#8E4103",
+            "#BAEFFF", "#8E4103", "#A50000",
         ]
         .iter()
         .map(|&s| s.into())
