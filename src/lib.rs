@@ -6,15 +6,13 @@ use wasm_bindgen::JsCast;
 
 #[wasm_bindgen]
 extern "C" {
-    // Use `js_namespace` here to bind `console.log(..)` instead of just
-    // `log(..)`
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
 }
 
 #[wasm_bindgen]
 pub fn start() {
-    let mut heights: [f64; 900] = [0f64; 900];
+    let heights: [f64; 900] = [0f64; 900];
     let terrain: Terrain = Terrain::new(heights);
     let document = web_sys::window().unwrap().document().unwrap();
     let canvas = document.get_element_by_id("warbots-canvas").unwrap();
@@ -30,18 +28,18 @@ pub fn start() {
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
 
-    /*
-     Not sure how to get this to work
-    let terrain: &'static Terrain = Terrain::new();
-    let heights: [f64; 900] = terrain.heights();
-    */
-    draw_terrain(&context, terrain.heights());
+    draw_terrain(&context, terrain);
 }
 
 use rand::Rng;
-pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, heights: [f64; 900]) {
-    let c = JsValue::from(String::from("#0000FF"));
-    context.set_stroke_style(&c);
+//pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, heights: [f64; 900]) {
+pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, terrain: Terrain) {
+    //let color = JsValue::from(String::from(terrain.color()));
+    let color = JsValue::from(terrain.color());
+    context.set_stroke_style(&color);
+    log(terrain.color());
+
+    let heights = terrain.heights();
 
     for x in 0..900 {
         context.begin_path();
@@ -51,15 +49,20 @@ pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, heights: [f64; 
     }
 }
 
-struct Terrain {
+pub struct Terrain {
     heights: [f64; 900],
+    color: String,
 }
 
+use rand::seq::SliceRandom;
 impl Terrain {
     fn new(mut heights: [f64; 900]) -> Terrain {
         const STEP_MAX: f64 = 2.5;
         const STEP_CHANGE: f64 = 1.0;
-        const HEIGHT_MAX: f64 = 450.0;
+        // minimum distance from the top of canvas to a mountain peak
+        const HEIGHT_MIN: f64 = 30.0;
+        // max distance from the top of canvas to a mountain peak
+        const HEIGHT_MAX: f64 = 470.0;
 
         let mut rng = rand::thread_rng();
 
@@ -70,7 +73,7 @@ impl Terrain {
         let mut slope: f64 = (y2 * STEP_MAX) * 2.0 - STEP_MAX;
 
         // create the landscape
-        for x in 0..900 {
+        for x in 0..heights.len() {
             // change height and slope
             terrain_height += slope;
             let y3: f64 = rng.gen();
@@ -90,18 +93,39 @@ impl Terrain {
                 slope *= -1.0;
             }
 
-            if terrain_height < 0.0 {
-                terrain_height = 0.0;
+            if terrain_height < HEIGHT_MIN {
+                terrain_height = HEIGHT_MIN;
                 slope *= -1.0;
             }
+
             heights[x] = terrain_height;
         }
 
-        Terrain { heights }
+        //let color = JsValue::from(String::from("#0000FF"));
+        let terrain_colors: Vec<String> = vec![
+            "#27FF00", "#43AB08", "#9D5109", "#EABC00", "#00960E", "#CCCCCC", "#FFFFFF", "#F7CAA6",
+            "#BAEFFF", "#8E4103",
+        ]
+        .iter()
+        .map(|&s| s.into())
+        .collect();
+
+        let color: Vec<_> = terrain_colors
+            .choose_multiple(&mut rand::thread_rng(), 1)
+            .collect();
+
+        Terrain {
+            heights,
+            color: color[0].clone(),
+        }
     }
 
     fn heights(&self) -> [f64; 900] {
         self.heights
+    }
+
+    fn color(&self) -> &String {
+        &self.color
     }
 }
 
