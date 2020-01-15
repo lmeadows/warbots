@@ -33,16 +33,61 @@ pub fn start() {
 
 use rand::Rng;
 pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, terrain: Terrain) {
+    let config: Config = Config::new();
     let color = JsValue::from(terrain.color());
     context.set_stroke_style(&color);
 
     let heights = terrain.heights();
 
-    for x in 0..900 {
+    let left_tank_height = heights[config.tank_left_pos() as usize];
+    let right_tank_height = heights[config.tank_right_pos() as usize];
+    for i in 0..heights.len() {
+        let x = i as f64;
+        // make the terrain flat where the tanks sit
+        let mut height = heights[i];
+        if x >= config.tank_left_pos() && x < config.tank_left_pos() + config.tank_width() {
+            height = left_tank_height;
+        }
+        if x >= config.tank_right_pos() && x < config.tank_right_pos() + config.tank_width() {
+            height = right_tank_height;
+        }
+        if x == config.tank_right_pos() || x == config.tank_left_pos() {
+            draw_tank(context, Point::new(x, height));
+        }
+
         context.begin_path();
         context.move_to(x as f64, 500.0);
-        context.line_to(x as f64, heights[x]);
+        context.line_to(x as f64, height);
         context.stroke();
+    }
+}
+
+pub fn draw_tank(context: &web_sys::CanvasRenderingContext2d, point: Point) {
+    let config: Config = Config::new();
+    context.set_fill_style(&JsValue::from("#FF0000"));
+    context.begin_path();
+    context.fill_rect(
+        point.x(),
+        point.y() - config.tank_height(),
+        config.tank_width(),
+        config.tank_height(),
+    );
+}
+
+pub struct Point {
+    x: f64,
+    y: f64,
+}
+
+impl Point {
+    pub fn new(x: f64, y: f64) -> Point {
+        Point { x, y }
+    }
+    pub fn x(&self) -> f64 {
+        self.x
+    }
+    pub fn y(&self) -> f64 {
+        self.y
     }
 }
 
@@ -95,7 +140,7 @@ impl Terrain {
                 slope *= -1.0;
             }
 
-            heights[x] = terrain_height;
+            heights[x] = terrain_height as f64;
         }
 
         let terrain_colors: Vec<String> = vec![
@@ -125,26 +170,58 @@ impl Terrain {
     }
 }
 
+pub struct Tank {
+    width: f64,
+    left_start_position: f64,
+    right_start_postion: f64,
+}
+
 #[wasm_bindgen]
 pub struct Config {
-    width: u32,
-    height: u32,
+    width: f64,
+    height: f64,
+    tank_left_pos: f64,
+    tank_right_pos: f64,
+    tank_width: f64,
+    tank_height: f64,
 }
 
 #[wasm_bindgen]
 impl Config {
     pub fn new() -> Config {
-        let width = 900;
-        let height = 500;
+        let width: f64 = 900.0;
+        let height: f64 = 500.0;
+        let tank_height: f64 = 10.0;
+        let tank_width: f64 = 10.0;
+        let tank_left_pos: f64 = 100.0;
+        let tank_right_pos: f64 = 790.0;
 
-        Config { width, height }
+        Config {
+            width,
+            height,
+            tank_height,
+            tank_width,
+            tank_left_pos,
+            tank_right_pos,
+        }
     }
 
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> f64 {
         self.height
     }
-
-    pub fn width(&self) -> u32 {
+    pub fn width(&self) -> f64 {
         self.width
+    }
+    pub fn tank_width(&self) -> f64 {
+        self.tank_width
+    }
+    pub fn tank_height(&self) -> f64 {
+        self.tank_width
+    }
+    pub fn tank_left_pos(&self) -> f64 {
+        self.tank_left_pos
+    }
+    pub fn tank_right_pos(&self) -> f64 {
+        self.tank_right_pos
     }
 }
