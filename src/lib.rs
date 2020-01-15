@@ -184,6 +184,10 @@ pub struct Config {
     tank_right_pos: f64,
     tank_width: f64,
     tank_height: f64,
+    max_power: u16,
+    min_power: u16,
+    max_angle: u8,
+    min_angle: u8,
 }
 
 #[wasm_bindgen]
@@ -195,6 +199,10 @@ impl Config {
         let tank_width: f64 = 10.0;
         let tank_left_pos: f64 = 100.0;
         let tank_right_pos: f64 = 790.0;
+        let max_power = 1000;
+        let min_power = 0;
+        let max_angle = 180;
+        let min_angle = 0;
 
         Config {
             width,
@@ -203,6 +211,10 @@ impl Config {
             tank_width,
             tank_left_pos,
             tank_right_pos,
+            max_power,
+            min_power,
+            max_angle,
+            min_angle,
         }
     }
 
@@ -223,5 +235,17 @@ impl Config {
     }
     pub fn tank_right_pos(&self) -> f64 {
         self.tank_right_pos
+    }
+    pub fn max_power(&self) -> u16 {
+        self.max_power
+    }
+    pub fn min_power(&self) -> u16 {
+        self.min_power
+    }
+    pub fn max_angle(&self) -> u8 {
+        self.max_angle
+    }
+    pub fn min_angle(&self) -> u8 {
+        self.min_angle
     }
 }

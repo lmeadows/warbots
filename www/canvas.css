@@ -1,3 +1,17 @@
 canvas#warbots-canvas {
   background-color: #000;
 }
+
+div#controls {
+  width: 897px;
+  height: 60px;
+  border: 2px solid #ccc;
+  position: relative;
+}
+
+.controlsWrapper {
+ position: absolute;
+ top: 50%;
+ transform: translateY(-50%);
+ margin-left: 10px;
+}

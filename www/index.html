@@ -6,7 +6,15 @@
     <link rel="stylesheet" href="/canvas.css"/>
   </head>
   <body>
-    <canvas id="warbots-canvas"></canvas>
+    <div id="controls">
+      <div class="controlsWrapper">
+        <div>Power: <input id="power-box" type="text" value="200" /></div>
+        <div>Angle: <input id="angle-box" type="text" value="90" /></div>
+      </div>
+    </div>
+    <div>
+      <canvas id="warbots-canvas"></canvas>
+    </div>
     <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
     <script src="./bootstrap.js"></script>
   </body>
