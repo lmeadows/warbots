@@ -1,5 +1,5 @@
 import "./canvas.css"
-import { Config, start } from "warbots";
+import { Config, start, player_fire } from "warbots";
 
 const config = Config.new();
 const canvas = document.getElementById("warbots-canvas");
@@ -18,6 +18,10 @@ window.addEventListener("keydown", (e) => {
 	}
 
   switch (e.keyCode) {
+    case 32:
+      // space key
+      player_fire();
+      break;
     case 37:
       // left key
       incrementAngle(-1);

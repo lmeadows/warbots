@@ -249,3 +249,8 @@ impl Config {
         self.min_angle
     }
 }
+
+#[wasm_bindgen]
+pub fn player_fire() {
+    log("shot fired");
+}
