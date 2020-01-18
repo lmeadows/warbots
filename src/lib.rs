@@ -17,21 +17,7 @@ lazy_static! {
 
 #[wasm_bindgen]
 pub fn start() {
-    let document = web_sys::window().unwrap().document().unwrap();
-    let canvas = document.get_element_by_id("warbots-canvas").unwrap();
-    let canvas: web_sys::HtmlCanvasElement = canvas
-        .dyn_into::<web_sys::HtmlCanvasElement>()
-        .map_err(|_| ())
-        .unwrap();
-
-    let context = canvas
-        .get_context("2d")
-        .unwrap()
-        .unwrap()
-        .dyn_into::<web_sys::CanvasRenderingContext2d>()
-        .unwrap();
-
-    draw_terrain(&context, &TERRAIN);
+    draw_terrain(&canvas_context(), &TERRAIN);
 
     // The Rust-WASM guide has some examples on how to handle interactivty in their preferred way
     // mio/tokio seem to have incompatibilities with wasm-bindgen, as does the std sleep method.
@@ -262,7 +248,46 @@ impl Config {
     }
 }
 
+pub struct Projectile {
+    point: Point,
+    color_hex: String,
+}
+
+impl Projectile {
+    pub fn new() -> Projectile {
+        // TODO: create a projectile from the tank's coordinates
+        let point = Point::new(0.0, 0.0);
+        let color_hex = String::from("#FF0000");
+        Projectile { point, color_hex }
+    }
+    pub fn point(&self) -> &Point {
+        &self.point
+    }
+    pub fn color_hex(&self) -> &String {
+        &self.color_hex
+    }
+}
+
 #[wasm_bindgen]
 pub fn player_fire() {
-    log("shot fired");
+    // TODO: animate the firing of the projectile here
+    //let context = canvas_context();
+}
+
+fn canvas_context() -> web_sys::CanvasRenderingContext2d {
+    let document = web_sys::window().unwrap().document().unwrap();
+    let canvas = document.get_element_by_id("warbots-canvas").unwrap();
+    let canvas: web_sys::HtmlCanvasElement = canvas
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .map_err(|_| ())
+        .unwrap();
+
+    let context = canvas
+        .get_context("2d")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::CanvasRenderingContext2d>()
+        .unwrap();
+
+    context
 }
