@@ -1,5 +1,6 @@
 mod utils;
 
+use lazy_static::lazy_static;
 use std::f64;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -10,10 +11,12 @@ extern "C" {
     fn log(s: &str);
 }
 
+lazy_static! {
+    static ref TERRAIN: Terrain = Terrain::new([0f64; 900]);
+}
+
 #[wasm_bindgen]
 pub fn start() {
-    let heights: [f64; 900] = [0f64; 900];
-    let terrain: Terrain = Terrain::new(heights);
     let document = web_sys::window().unwrap().document().unwrap();
     let canvas = document.get_element_by_id("warbots-canvas").unwrap();
     let canvas: web_sys::HtmlCanvasElement = canvas
@@ -28,13 +31,22 @@ pub fn start() {
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
 
-    draw_terrain(&context, terrain);
+    draw_terrain(&context, &TERRAIN);
+
+    // The Rust-WASM guide has some examples on how to handle interactivty in their preferred way
+    // mio/tokio seem to have incompatibilities with wasm-bindgen, as does the std sleep method.
+    // It looks like the wasm-bindgen folks suggest embracing js asynchronicity rather than doing
+    // your own timing / event-looping anyway
+    // https://rustwasm.github.io/wasm-bindgen/examples/closures.html
+    // Will likely also need a way to have mutable, global state on the rust side with this
+    // approach:
+    // https://stackoverflow.com/questions/27791532/how-do-i-create-a-global-mutable-singleton
 }
 
 use rand::Rng;
-pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, terrain: Terrain) {
+pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, terrain: &Terrain) {
     let config: Config = Config::new();
-    let color = JsValue::from(terrain.color());
+    let color = JsValue::from(TERRAIN.color_hex());
     context.set_stroke_style(&color);
 
     let heights = terrain.heights();
@@ -93,7 +105,7 @@ impl Point {
 
 pub struct Terrain {
     heights: [f64; 900],
-    color: String,
+    color_hex: String,
 }
 
 use rand::seq::SliceRandom;
@@ -157,7 +169,7 @@ impl Terrain {
 
         Terrain {
             heights,
-            color: color[0].clone(),
+            color_hex: color[0].clone(),
         }
     }
 
@@ -165,8 +177,8 @@ impl Terrain {
         self.heights
     }
 
-    fn color(&self) -> &String {
-        &self.color
+    fn color_hex(&self) -> &String {
+        &self.color_hex
     }
 }
 
@@ -228,7 +240,7 @@ impl Config {
         self.tank_width
     }
     pub fn tank_height(&self) -> f64 {
-        self.tank_width
+        self.tank_height
     }
     pub fn tank_left_pos(&self) -> f64 {
         self.tank_left_pos
