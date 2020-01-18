@@ -13,20 +13,20 @@ extern "C" {
 
 lazy_static! {
     static ref TERRAIN: Terrain = Terrain::new([0f64; 900]);
+    static ref CONFIG: Config = Config::new();
+    static ref LEFT_TANK: Tank = Tank::new(Point::new(
+        CONFIG.tank_left_pos(),
+        TERRAIN.heights()[CONFIG.tank_left_pos() as usize]
+    ));
+    static ref RIGHT_TANK: Tank = Tank::new(Point::new(
+        CONFIG.tank_right_pos(),
+        TERRAIN.heights()[CONFIG.tank_right_pos() as usize]
+    ));
 }
 
 #[wasm_bindgen]
 pub fn start() {
     draw_terrain(&canvas_context(), &TERRAIN);
-
-    // The Rust-WASM guide has some examples on how to handle interactivty in their preferred way
-    // mio/tokio seem to have incompatibilities with wasm-bindgen, as does the std sleep method.
-    // It looks like the wasm-bindgen folks suggest embracing js asynchronicity rather than doing
-    // your own timing / event-looping anyway
-    // https://rustwasm.github.io/wasm-bindgen/examples/closures.html
-    // Will likely also need a way to have mutable, global state on the rust side with this
-    // approach:
-    // https://stackoverflow.com/questions/27791532/how-do-i-create-a-global-mutable-singleton
 }
 
 use rand::Rng;
@@ -49,8 +49,11 @@ pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, terrain: &Terra
         if x >= config.tank_right_pos() && x < config.tank_right_pos() + config.tank_width() {
             height = right_tank_height;
         }
-        if x == config.tank_right_pos() || x == config.tank_left_pos() {
-            draw_tank(context, Point::new(x, height));
+        if x == config.tank_left_pos() {
+            LEFT_TANK.draw();
+        }
+        if x == config.tank_right_pos() {
+            RIGHT_TANK.draw();
         }
 
         context.begin_path();
@@ -170,8 +173,33 @@ impl Terrain {
 
 pub struct Tank {
     width: f64,
-    left_start_position: f64,
-    right_start_postion: f64,
+    height: f64,
+    location: Point,
+}
+
+impl Tank {
+    fn new(point: Point) -> Tank {
+        let width = CONFIG.tank_width();
+        let height = CONFIG.tank_height();
+        let location = point;
+        Tank {
+            width,
+            height,
+            location,
+        }
+    }
+
+    fn draw(&self) {
+        let context = canvas_context();
+        context.set_fill_style(&JsValue::from("#FF0000"));
+        context.begin_path();
+        context.fill_rect(
+            self.location.x(),
+            self.location.y() - CONFIG.tank_height(),
+            CONFIG.tank_width(),
+            CONFIG.tank_height(),
+        );
+    }
 }
 
 #[wasm_bindgen]
