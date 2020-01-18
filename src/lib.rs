@@ -258,6 +258,7 @@ impl Projectile {
         // TODO: create a projectile from the tank's coordinates
         let point = Point::new(0.0, 0.0);
         let color_hex = String::from("#FF0000");
+
         Projectile { point, color_hex }
     }
     pub fn point(&self) -> &Point {
@@ -266,12 +267,25 @@ impl Projectile {
     pub fn color_hex(&self) -> &String {
         &self.color_hex
     }
+    fn fire(power: String, angle: String, context: web_sys::CanvasRenderingContext2d) {
+        // TODO: make this an instance method and use the built-in color_hex value?
+        context.set_fill_style(&JsValue::from("#FFFFFF"));
+        context.fill_rect(10.0, 10.0, 2.0, 2.0);
+    }
 }
 
 #[wasm_bindgen]
-pub fn player_fire() {
-    // TODO: animate the firing of the projectile here
-    //let context = canvas_context();
+pub fn player_fire(power: JsValue, angle: JsValue) {
+    let power = power.as_string().unwrap();
+    let angle = angle.as_string().unwrap();
+
+    let context = canvas_context();
+    Projectile::fire(power, angle, context);
+}
+
+fn document() -> web_sys::Document {
+    let document = web_sys::window().unwrap().document().unwrap();
+    document
 }
 
 fn canvas_context() -> web_sys::CanvasRenderingContext2d {

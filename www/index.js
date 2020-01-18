@@ -20,7 +20,7 @@ window.addEventListener("keydown", (e) => {
   switch (e.keyCode) {
     case 32:
       // space key
-      player_fire();
+      player_fire(powerBox.value, angleBox.value);
       break;
     case 37:
       // left key
