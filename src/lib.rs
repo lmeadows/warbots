@@ -194,8 +194,8 @@ impl Tank {
         context.set_fill_style(&JsValue::from("#FF0000"));
         context.begin_path();
         context.fill_rect(
-            self.location.x(),
-            self.location.y() - CONFIG.tank_height(),
+            self.location.x,
+            self.location.y - CONFIG.tank_height(),
             CONFIG.tank_width(),
             CONFIG.tank_height(),
         );
@@ -279,15 +279,22 @@ impl Config {
 pub struct Projectile {
     point: Point,
     color_hex: String,
+    size: f64,
 }
 
 impl Projectile {
     pub fn new() -> Projectile {
-        // TODO: create a projectile from the tank's coordinates
-        let point = Point::new(0.0, 0.0);
-        let color_hex = String::from("#FF0000");
+        let x = LEFT_TANK.location.x + LEFT_TANK.width / 2.0;
+        let y = LEFT_TANK.location.y - LEFT_TANK.height;
+        let point = Point::new(x, y);
+        let color_hex = String::from("#FFFFF0");
+        let size = 3.0;
 
-        Projectile { point, color_hex }
+        Projectile {
+            point,
+            color_hex,
+            size,
+        }
     }
     pub fn point(&self) -> &Point {
         &self.point
@@ -295,10 +302,10 @@ impl Projectile {
     pub fn color_hex(&self) -> &String {
         &self.color_hex
     }
-    fn fire(power: String, angle: String, context: web_sys::CanvasRenderingContext2d) {
-        // TODO: make this an instance method and use the built-in color_hex value?
-        context.set_fill_style(&JsValue::from("#FFFFFF"));
-        context.fill_rect(10.0, 10.0, 2.0, 2.0);
+    fn fire(&self, power: String, angle: String) {
+        let context = canvas_context();
+        context.set_fill_style(&JsValue::from(&self.color_hex));
+        context.fill_rect(self.point.x, self.point.y, self.size, self.size);
     }
 }
 
@@ -308,7 +315,8 @@ pub fn player_fire(power: JsValue, angle: JsValue) {
     let angle = angle.as_string().unwrap();
 
     let context = canvas_context();
-    Projectile::fire(power, angle, context);
+    let projectile = Projectile::new();
+    projectile.fire(power, angle);
 }
 
 fn document() -> web_sys::Document {
