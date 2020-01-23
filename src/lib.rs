@@ -1,7 +1,9 @@
 mod utils;
 
 use lazy_static::lazy_static;
+use std::cell::RefCell;
 use std::f64;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -11,6 +13,7 @@ extern "C" {
     fn log(s: &str);
 }
 
+// TODO: figure out if this truly needs to be lazy statics? Maybe just globals?
 lazy_static! {
     static ref TERRAIN: Terrain = Terrain::new([0f64; 900]);
     static ref CONFIG: Config = Config::new();
@@ -25,8 +28,34 @@ lazy_static! {
 }
 
 #[wasm_bindgen]
-pub fn start() {
+pub fn start() -> Result<(), JsValue> {
     draw_terrain(&canvas_context(), &TERRAIN);
+
+    let window = web_sys::window().unwrap();
+
+    // FIXME: Hack for requestAnimationFrame loop
+    let f = Rc::new(RefCell::new(None));
+    let g = f.clone();
+    *g.borrow_mut() = Some(Closure::wrap(Box::new(move |i| {
+        on_animation_frame(i);
+        request_animation_frame(f.borrow().as_ref().unwrap());
+    }) as Box<dyn FnMut(i32)>));
+    request_animation_frame(g.borrow().as_ref().unwrap());
+
+    // FIXME: Hacky key event handler binding
+    let onkeydown_handler = Closure::wrap(Box::new(|e: web_sys::KeyboardEvent| {
+        on_key(e.key_code(), true);
+    }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
+    window.set_onkeydown(Some(onkeydown_handler.as_ref().unchecked_ref()));
+    onkeydown_handler.forget();
+
+    let onkeyup_handler = Closure::wrap(Box::new(|e: web_sys::KeyboardEvent| {
+        on_key(e.key_code(), false);
+    }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
+    window.set_onkeyup(Some(onkeyup_handler.as_ref().unchecked_ref()));
+    onkeyup_handler.forget();
+
+    Ok(())
 }
 
 use rand::Rng;
@@ -340,4 +369,32 @@ fn canvas_context() -> web_sys::CanvasRenderingContext2d {
         .unwrap();
 
     context
+}
+
+pub fn on_animation_frame(timestamp: i32) {}
+
+fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
+    web_sys::window()
+        .unwrap()
+        .request_animation_frame(f.as_ref().unchecked_ref())
+        .expect("should register `requestAnimationFrame` OK");
+}
+
+pub fn on_key(key: u32, state: bool) {
+    const KEY_UP: u32 = 38;
+    const KEY_DOWN: u32 = 40;
+    const KEY_A: u32 = 65;
+    const KEY_Z: u32 = 90;
+    // TODO: figure out how to get this working with my global state
+    /*
+        let pong = unsafe { PONG.as_mut().unwrap() };
+
+        match key {
+            KEY_UP => pong.right.up = state,
+            KEY_DOWN => pong.right.down = state,
+            KEY_A => pong.left.up = state,
+            KEY_Z => pong.left.down = state,
+            _ => (),
+        };
+    */
 }
