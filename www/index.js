@@ -20,7 +20,10 @@ window.addEventListener("keydown", (e) => {
   switch (e.keyCode) {
     case 32:
       // space key
+      /**
+       * disabling this for now while i figure out if i can manage this in the rust event loop
       player_fire(powerBox.value, angleBox.value);
+      */
       break;
     case 37:
       // left key

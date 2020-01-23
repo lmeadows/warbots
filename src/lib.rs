@@ -42,12 +42,6 @@ pub fn start() -> Result<(), JsValue> {
     request_animation_frame(g.borrow().as_ref().unwrap());
 
     // FIXME: Hacky key event handler binding
-    let onkeydown_handler = Closure::wrap(Box::new(|e: web_sys::KeyboardEvent| {
-        on_key(e.key_code(), true);
-    }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
-    window.set_onkeydown(Some(onkeydown_handler.as_ref().unchecked_ref()));
-    onkeydown_handler.forget();
-
     let onkeyup_handler = Closure::wrap(Box::new(|e: web_sys::KeyboardEvent| {
         on_key(e.key_code(), false);
     }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
@@ -379,12 +373,14 @@ fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
 }
 
 pub fn on_key(key: u32, state: bool) {
+    log("on_key handler called");
+    // TODO: figure out how to get this working with my global state
+    /*
     const KEY_UP: u32 = 38;
     const KEY_DOWN: u32 = 40;
     const KEY_A: u32 = 65;
     const KEY_Z: u32 = 90;
-    // TODO: figure out how to get this working with my global state
-    /*
+
         let pong = unsafe { PONG.as_mut().unwrap() };
 
         match key {
