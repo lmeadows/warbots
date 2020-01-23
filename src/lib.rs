@@ -13,7 +13,6 @@ extern "C" {
     fn log(s: &str);
 }
 
-// TODO: figure out if this truly needs to be lazy statics? Maybe just globals?
 lazy_static! {
     static ref TERRAIN: Terrain = Terrain::new([0f64; 900]);
     static ref CONFIG: Config = Config::new();
@@ -29,7 +28,7 @@ lazy_static! {
 
 #[wasm_bindgen]
 pub fn start() -> Result<(), JsValue> {
-    draw_terrain(&canvas_context(), &TERRAIN);
+    draw_terrain();
 
     let window = web_sys::window().unwrap();
 
@@ -59,29 +58,29 @@ pub fn start() -> Result<(), JsValue> {
 }
 
 use rand::Rng;
-pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, terrain: &Terrain) {
-    let config: Config = Config::new();
+pub fn draw_terrain() {
+    let context = canvas_context();
     let color = JsValue::from(TERRAIN.color_hex());
     context.set_stroke_style(&color);
 
-    let heights = terrain.heights();
+    let heights = TERRAIN.heights();
 
-    let left_tank_height = heights[config.tank_left_pos() as usize];
-    let right_tank_height = heights[config.tank_right_pos() as usize];
+    let left_tank_height = heights[CONFIG.tank_left_pos() as usize];
+    let right_tank_height = heights[CONFIG.tank_right_pos() as usize];
     for i in 0..heights.len() {
         let x = i as f64;
         // make the terrain flat where the tanks sit
         let mut height = heights[i];
-        if x >= config.tank_left_pos() && x < config.tank_left_pos() + config.tank_width() {
+        if x >= CONFIG.tank_left_pos() && x < CONFIG.tank_left_pos() + CONFIG.tank_width() {
             height = left_tank_height;
         }
-        if x >= config.tank_right_pos() && x < config.tank_right_pos() + config.tank_width() {
+        if x >= CONFIG.tank_right_pos() && x < CONFIG.tank_right_pos() + CONFIG.tank_width() {
             height = right_tank_height;
         }
-        if x == config.tank_left_pos() {
+        if x == CONFIG.tank_left_pos() {
             LEFT_TANK.draw();
         }
-        if x == config.tank_right_pos() {
+        if x == CONFIG.tank_right_pos() {
             RIGHT_TANK.draw();
         }
 
@@ -93,14 +92,13 @@ pub fn draw_terrain(context: &web_sys::CanvasRenderingContext2d, terrain: &Terra
 }
 
 pub fn draw_tank(context: &web_sys::CanvasRenderingContext2d, point: Point) {
-    let config: Config = Config::new();
     context.set_fill_style(&JsValue::from("#FF0000"));
     context.begin_path();
     context.fill_rect(
         point.x(),
-        point.y() - config.tank_height(),
-        config.tank_width(),
-        config.tank_height(),
+        point.y() - CONFIG.tank_height(),
+        CONFIG.tank_width(),
+        CONFIG.tank_height(),
     );
 }
 
