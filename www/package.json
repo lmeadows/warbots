@@ -8,9 +8,10 @@
   },
   "scripts": {
     "build": "webpack --config webpack.config.js",
-    "start": "npm-run-all --parallel start:webpack watch:rust",
+    "start": "npm-run-all --parallel start:webpack watch:rust watch:js",
     "start:webpack": "webpack-dev-server",
-    "watch:rust": "nodemon --watch 'rust' -e rs --exec 'cd .. && wasm-pack build'"
+    "watch:rust": "nodemon --watch 'rust' -e rs --exec 'cd .. && wasm-pack build'",
+    "watch:js": "nodemon -e js --exec 'cd .. && wasm-pack build'"
   },
   "repository": {
     "type": "git",

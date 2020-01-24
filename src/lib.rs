@@ -223,6 +223,29 @@ impl Tank {
     }
 }
 
+struct Turn {
+    active_tank: Side,
+}
+
+enum Side {
+    Left,
+    Right,
+}
+
+impl Turn {
+    fn new() {
+        // The left tank is the human, who fires first
+        let active_tank = Side::Left;
+    }
+
+    fn end(&mut self) {
+        match self.active_tank {
+            Side::Left => self.active_tank = Side::Right,
+            Side::Right => self.active_tank = Side::Left,
+        }
+    }
+}
+
 #[wasm_bindgen]
 pub struct Config {
     width: f64,
@@ -323,19 +346,16 @@ impl Projectile {
     pub fn color_hex(&self) -> &String {
         &self.color_hex
     }
-    fn fire(&self, power: String, angle: String) {
+    fn fire(&self, power: f64, angle: f64) {
         let context = canvas_context();
         context.set_fill_style(&JsValue::from(&self.color_hex));
         context.fill_rect(self.point.x, self.point.y, self.size, self.size);
     }
 }
 
-#[wasm_bindgen]
-pub fn player_fire(power: JsValue, angle: JsValue) {
-    let power = power.as_string().unwrap();
-    let angle = angle.as_string().unwrap();
-
-    let context = canvas_context();
+fn player_fire(power: f64, angle: f64) {
+    log(&power.to_string());
+    log(&angle.to_string());
     let projectile = Projectile::new();
     projectile.fire(power, angle);
 }
@@ -346,8 +366,7 @@ fn document() -> web_sys::Document {
 }
 
 fn canvas_context() -> web_sys::CanvasRenderingContext2d {
-    let document = web_sys::window().unwrap().document().unwrap();
-    let canvas = document.get_element_by_id("warbots-canvas").unwrap();
+    let canvas = document().get_element_by_id("warbots-canvas").unwrap();
     let canvas: web_sys::HtmlCanvasElement = canvas
         .dyn_into::<web_sys::HtmlCanvasElement>()
         .map_err(|_| ())
@@ -373,22 +392,20 @@ fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
 }
 
 pub fn on_key(key: u32, state: bool) {
-    log("on_key handler called");
-    // TODO: figure out how to get this working with my global state
-    /*
+    const KEY_SPACE: u32 = 32;
+    const KEY_LEFT: u32 = 37;
     const KEY_UP: u32 = 38;
+    const KEY_RIGHT: u32 = 39;
     const KEY_DOWN: u32 = 40;
-    const KEY_A: u32 = 65;
-    const KEY_Z: u32 = 90;
 
-        let pong = unsafe { PONG.as_mut().unwrap() };
+    match key {
+        KEY_SPACE => player_fire(get_power() as f64, get_angle() as f64),
+        _ => (),
+    };
+}
 
-        match key {
-            KEY_UP => pong.right.up = state,
-            KEY_DOWN => pong.right.down = state,
-            KEY_A => pong.left.up = state,
-            KEY_Z => pong.left.down = state,
-            _ => (),
-        };
-    */
+#[wasm_bindgen(module = "/www/rust-utils.js")]
+extern "C" {
+    fn get_power() -> u32;
+    fn get_angle() -> u32;
 }
