@@ -24,6 +24,7 @@ lazy_static! {
         CONFIG.tank_right_pos(),
         TERRAIN.heights()[CONFIG.tank_right_pos() as usize]
     ));
+    static ref TURN: Turn = Turn::new();
 }
 
 #[wasm_bindgen]
@@ -233,9 +234,11 @@ enum Side {
 }
 
 impl Turn {
-    fn new() {
+    fn new() -> Turn {
         // The left tank is the human, who fires first
         let active_tank = Side::Left;
+
+        Turn { active_tank }
     }
 
     fn end(&mut self) {
@@ -353,13 +356,6 @@ impl Projectile {
     }
 }
 
-fn player_fire(power: f64, angle: f64) {
-    log(&power.to_string());
-    log(&angle.to_string());
-    let projectile = Projectile::new();
-    projectile.fire(power, angle);
-}
-
 fn document() -> web_sys::Document {
     let document = web_sys::window().unwrap().document().unwrap();
     document
@@ -382,7 +378,9 @@ fn canvas_context() -> web_sys::CanvasRenderingContext2d {
     context
 }
 
-pub fn on_animation_frame(timestamp: i32) {}
+pub fn on_animation_frame(timestamp: i32) {
+    // TODO: animate projectile here
+}
 
 fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
     web_sys::window()
@@ -399,7 +397,7 @@ pub fn on_key(key: u32, state: bool) {
     const KEY_DOWN: u32 = 40;
 
     match key {
-        KEY_SPACE => player_fire(get_power() as f64, get_angle() as f64),
+        KEY_SPACE => Projectile::new().fire(get_power() as f64, get_angle() as f64),
         _ => (),
     };
 }
