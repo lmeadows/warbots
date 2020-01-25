@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use std::cell::RefCell;
 use std::f64;
 use std::rc::Rc;
+use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -14,7 +15,7 @@ extern "C" {
 }
 
 lazy_static! {
-    static ref TERRAIN: Terrain = Terrain::new([0f64; 900]);
+    static ref TERRAIN: Terrain = Terrain::new();
     static ref CONFIG: Config = Config::new();
     static ref LEFT_TANK: Tank = Tank::new(Point::new(
         CONFIG.tank_left_pos(),
@@ -24,6 +25,7 @@ lazy_static! {
         CONFIG.tank_right_pos(),
         TERRAIN.heights()[CONFIG.tank_right_pos() as usize]
     ));
+    static ref PROJECTILE_POINT: Mutex<Point> = Mutex::new(Point::new(0.0, 0.0));
 }
 
 static mut TURN: Option<Turn> = None;
@@ -99,11 +101,13 @@ pub fn draw_tank(context: &web_sys::CanvasRenderingContext2d, point: Point) {
     );
 }
 
+#[wasm_bindgen]
 pub struct Point {
     x: f64,
     y: f64,
 }
 
+#[wasm_bindgen]
 impl Point {
     pub fn new(x: f64, y: f64) -> Point {
         Point { x, y }
@@ -116,6 +120,7 @@ impl Point {
     }
 }
 
+#[wasm_bindgen]
 pub struct Terrain {
     heights: [f64; 900],
     color_hex: String,
@@ -123,7 +128,8 @@ pub struct Terrain {
 
 use rand::seq::SliceRandom;
 impl Terrain {
-    fn new(mut heights: [f64; 900]) -> Terrain {
+    pub fn new() -> Terrain {
+        let mut heights: [f64; 900] = [0f64; 900];
         const STEP_MAX: f64 = 2.5;
         const STEP_CHANGE: f64 = 1.0;
         // minimum distance from the top of canvas to a mountain peak
@@ -186,23 +192,25 @@ impl Terrain {
         }
     }
 
-    fn heights(&self) -> [f64; 900] {
+    pub fn heights(&self) -> [f64; 900] {
         self.heights
     }
 
-    fn color_hex(&self) -> &String {
-        &self.color_hex
+    pub fn color_hex(&self) -> String {
+        String::from(self.color_hex.clone())
     }
 }
 
+#[wasm_bindgen]
 pub struct Tank {
     width: f64,
     height: f64,
     location: Point,
 }
 
+#[wasm_bindgen]
 impl Tank {
-    fn new(point: Point) -> Tank {
+    pub fn new(point: Point) -> Tank {
         let width = CONFIG.tank_width();
         let height = CONFIG.tank_height();
         let location = point;
@@ -213,7 +221,7 @@ impl Tank {
         }
     }
 
-    fn draw(&self) {
+    pub fn draw(&self) {
         let context = canvas_context();
         context.set_fill_style(&JsValue::from("#FF0000"));
         context.begin_path();
@@ -226,7 +234,8 @@ impl Tank {
     }
 }
 
-struct Turn {
+#[wasm_bindgen]
+pub struct Turn {
     active_tank: Side,
     projectile_in_flight: bool,
 }
@@ -236,8 +245,9 @@ enum Side {
     Right,
 }
 
+#[wasm_bindgen]
 impl Turn {
-    fn new() -> Turn {
+    pub fn new() -> Turn {
         // The left tank is the human, who fires first
         let active_tank = Side::Left;
         let projectile_in_flight = false;
@@ -248,11 +258,11 @@ impl Turn {
         }
     }
 
-    fn take(&mut self) {
+    pub fn take(&mut self) {
         self.projectile_in_flight = true;
     }
 
-    fn end(&mut self) {
+    pub fn end(&mut self) {
         match self.active_tank {
             Side::Left => self.active_tank = Side::Right,
             Side::Right => self.active_tank = Side::Left,
@@ -335,12 +345,14 @@ impl Config {
     }
 }
 
+#[wasm_bindgen]
 pub struct Projectile {
     point: Point,
     color_hex: String,
     size: f64,
 }
 
+#[wasm_bindgen]
 impl Projectile {
     pub fn new() -> Projectile {
         let x = LEFT_TANK.location.x + LEFT_TANK.width / 2.0;
@@ -355,13 +367,13 @@ impl Projectile {
             size,
         }
     }
-    pub fn point(&self) -> &Point {
-        &self.point
+    pub fn point(&self) -> Point {
+        Point::new(self.point.x, self.point.y)
     }
-    pub fn color_hex(&self) -> &String {
-        &self.color_hex
+    pub fn color_hex(&self) -> String {
+        String::from(self.color_hex.clone())
     }
-    fn fire(&self, power: f64, angle: f64) {
+    pub fn fire(&self, power: f64, angle: f64) {
         let context = canvas_context();
         context.set_fill_style(&JsValue::from(&self.color_hex));
         context.fill_rect(self.point.x, self.point.y, self.size, self.size);
@@ -408,7 +420,7 @@ fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
         .expect("should register `requestAnimationFrame` OK");
 }
 
-pub fn on_key(key: u32, state: bool) {
+fn on_key(key: u32, state: bool) {
     const KEY_SPACE: u32 = 32;
     const KEY_LEFT: u32 = 37;
     const KEY_UP: u32 = 38;
@@ -416,9 +428,42 @@ pub fn on_key(key: u32, state: bool) {
     const KEY_DOWN: u32 = 40;
 
     match key {
-        KEY_SPACE => Projectile::new().fire(get_power() as f64, get_angle() as f64),
+        KEY_SPACE => handle_player_fire_attempt(),
+        //KEY_SPACE => Projectile::new().fire(get_power() as f64, get_angle() as f64),
         _ => (),
     };
+}
+
+fn handle_player_fire_attempt() {
+    let point = set_projectile_point();
+    // TODO: make a static mut for the projectile, and move it back and forth on each
+    // turn instead of creating new projectiles
+    //let projectile = Projectile::new(point, get_power() as f64, get_angle() as f64);
+    //let turn = unsafe { TURN.as_mut().unwrap() };
+    //turn.take(projectile);
+    //turn.take(projectile);
+}
+
+fn set_projectile_point() {
+    let turn = unsafe { TURN.as_mut().unwrap() };
+    let mut tank_option: Option<&Tank> = None;
+    match turn.active_tank {
+        Side::Left => tank_option = Some(&LEFT_TANK),
+        Side::Right => tank_option = Some(&RIGHT_TANK),
+    }
+
+    let tank = tank_option.unwrap();
+    let x = tank.location.x + tank.width / 2.0;
+    let y = tank.location.y - tank.height;
+
+    PROJECTILE_POINT.lock().unwrap().x = x;
+    PROJECTILE_POINT.lock().unwrap().y = y;
+    //let point = unsafe { (*PROJECTILE_POINT).as_mut() };
+    log(&PROJECTILE_POINT.lock().unwrap().x.to_string());
+    /*
+    projectile.point.x = x;
+    projectile.point.y = y;
+    */
 }
 
 #[wasm_bindgen(module = "/www/rust-utils.js")]
