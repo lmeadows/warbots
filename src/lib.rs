@@ -24,11 +24,13 @@ lazy_static! {
         CONFIG.tank_right_pos(),
         TERRAIN.heights()[CONFIG.tank_right_pos() as usize]
     ));
-    static ref TURN: Turn = Turn::new();
 }
+
+static mut TURN: Option<Turn> = None;
 
 #[wasm_bindgen]
 pub fn start() -> Result<(), JsValue> {
+    unsafe { TURN = Some(Turn::new()) };
     draw_terrain();
 
     let window = web_sys::window().unwrap();
@@ -226,6 +228,7 @@ impl Tank {
 
 struct Turn {
     active_tank: Side,
+    projectile_in_flight: bool,
 }
 
 enum Side {
@@ -237,8 +240,16 @@ impl Turn {
     fn new() -> Turn {
         // The left tank is the human, who fires first
         let active_tank = Side::Left;
+        let projectile_in_flight = false;
 
-        Turn { active_tank }
+        Turn {
+            active_tank,
+            projectile_in_flight,
+        }
+    }
+
+    fn take(&mut self) {
+        self.projectile_in_flight = true;
     }
 
     fn end(&mut self) {
@@ -246,6 +257,7 @@ impl Turn {
             Side::Left => self.active_tank = Side::Right,
             Side::Right => self.active_tank = Side::Left,
         }
+        self.projectile_in_flight = false;
     }
 }
 
@@ -380,6 +392,13 @@ fn canvas_context() -> web_sys::CanvasRenderingContext2d {
 
 pub fn on_animation_frame(timestamp: i32) {
     // TODO: animate projectile here
+    let mut tank: Option<&Tank> = None;
+    let turn = unsafe { TURN.as_mut().unwrap() };
+
+    match turn.active_tank {
+        Side::Left => tank = Some(&LEFT_TANK),
+        Side::Right => tank = Some(&RIGHT_TANK),
+    }
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
