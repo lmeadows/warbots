@@ -238,6 +238,8 @@ impl Tank {
 pub struct Turn {
     active_tank: Side,
     projectile_in_flight: bool,
+    init_power: Option<f64>,
+    init_angle: Option<f64>,
 }
 
 enum Side {
@@ -251,10 +253,14 @@ impl Turn {
         // The left tank is the human, who fires first
         let active_tank = Side::Left;
         let projectile_in_flight = false;
+        let init_power = None;
+        let init_angle = None;
 
         Turn {
             active_tank,
             projectile_in_flight,
+            init_power,
+            init_angle,
         }
     }
 
@@ -403,7 +409,6 @@ fn canvas_context() -> web_sys::CanvasRenderingContext2d {
 }
 
 pub fn on_animation_frame(timestamp: i32) {
-    // TODO: animate projectile here
     let mut tank: Option<&Tank> = None;
     let turn = unsafe { TURN.as_mut().unwrap() };
 
@@ -411,6 +416,13 @@ pub fn on_animation_frame(timestamp: i32) {
         Side::Left => tank = Some(&LEFT_TANK),
         Side::Right => tank = Some(&RIGHT_TANK),
     }
+    // TODO: animate projectile here
+    // The line below shows the correct output for whether the turn is active
+    //log(&turn.projectile_in_flight.to_string());
+    // So we can start moving the projectile across the screen here
+    // This f64 seems unreachable from WASM tho, despite the projectile_in_flight bool being
+    // available...
+    //log(&turn.init_angle.unwrap().to_string());
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
@@ -429,23 +441,21 @@ fn on_key(key: u32, state: bool) {
 
     match key {
         KEY_SPACE => handle_player_fire_attempt(),
-        //KEY_SPACE => Projectile::new().fire(get_power() as f64, get_angle() as f64),
         _ => (),
     };
 }
 
 fn handle_player_fire_attempt() {
-    let point = set_projectile_point();
-    // TODO: make a static mut for the projectile, and move it back and forth on each
-    // turn instead of creating new projectiles
-    //let projectile = Projectile::new(point, get_power() as f64, get_angle() as f64);
-    //let turn = unsafe { TURN.as_mut().unwrap() };
-    //turn.take(projectile);
-    //turn.take(projectile);
+    // TODO: validate that it's the player's turn, and that he has NOT already fired
+    set_ballistics_params(get_power() as f64, get_angle() as f64);
+    let turn = unsafe { TURN.as_mut().unwrap() };
+    turn.take();
 }
 
-fn set_projectile_point() {
+fn set_ballistics_params(init_power: f64, init_angle: f64) {
     let turn = unsafe { TURN.as_mut().unwrap() };
+    turn.init_power = Some(init_power);
+    turn.init_angle = Some(init_angle);
     let mut tank_option: Option<&Tank> = None;
     match turn.active_tank {
         Side::Left => tank_option = Some(&LEFT_TANK),
@@ -458,12 +468,6 @@ fn set_projectile_point() {
 
     PROJECTILE_POINT.lock().unwrap().x = x;
     PROJECTILE_POINT.lock().unwrap().y = y;
-    //let point = unsafe { (*PROJECTILE_POINT).as_mut() };
-    log(&PROJECTILE_POINT.lock().unwrap().x.to_string());
-    /*
-    projectile.point.x = x;
-    projectile.point.y = y;
-    */
 }
 
 #[wasm_bindgen(module = "/www/rust-utils.js")]
