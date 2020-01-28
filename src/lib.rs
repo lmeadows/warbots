@@ -238,8 +238,8 @@ impl Tank {
 pub struct Turn {
     active_tank: Side,
     projectile_in_flight: bool,
-    init_power: Option<f64>,
-    init_angle: Option<f64>,
+    init_power: f64,
+    init_angle: f64,
 }
 
 enum Side {
@@ -253,8 +253,8 @@ impl Turn {
         // The left tank is the human, who fires first
         let active_tank = Side::Left;
         let projectile_in_flight = false;
-        let init_power = None;
-        let init_angle = None;
+        let init_power = 0.0;
+        let init_angle = 0.0;
 
         Turn {
             active_tank,
@@ -289,6 +289,7 @@ pub struct Config {
     min_power: u16,
     max_angle: u8,
     min_angle: u8,
+    projectile_velocity: f64,
 }
 
 #[wasm_bindgen]
@@ -304,6 +305,7 @@ impl Config {
         let min_power = 0;
         let max_angle = 180;
         let min_angle = 0;
+        let projectile_velocity = 0.01;
 
         Config {
             width,
@@ -316,6 +318,7 @@ impl Config {
             min_power,
             max_angle,
             min_angle,
+            projectile_velocity,
         }
     }
 
@@ -412,17 +415,23 @@ pub fn on_animation_frame(timestamp: i32) {
     let mut tank: Option<&Tank> = None;
     let turn = unsafe { TURN.as_mut().unwrap() };
 
+    if !turn.projectile_in_flight {
+        return;
+    }
+    log("projectile in flight");
+
     match turn.active_tank {
         Side::Left => tank = Some(&LEFT_TANK),
         Side::Right => tank = Some(&RIGHT_TANK),
     }
     // TODO: animate projectile here
-    // The line below shows the correct output for whether the turn is active
+    // There's a projectile velocity value in Config
     //log(&turn.projectile_in_flight.to_string());
-    // So we can start moving the projectile across the screen here
-    // This f64 seems unreachable from WASM tho, despite the projectile_in_flight bool being
-    // available...
-    //log(&turn.init_angle.unwrap().to_string());
+    //log(&turn.init_angle.to_string());
+    let context = canvas_context();
+    context.set_fill_style(&JsValue::from("#FFFFFF"));
+    let pp = PROJECTILE_POINT.lock().unwrap();
+    context.fill_rect(pp.x, pp.y, 2.0, 2.0);
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
@@ -454,8 +463,8 @@ fn handle_player_fire_attempt() {
 
 fn set_ballistics_params(init_power: f64, init_angle: f64) {
     let turn = unsafe { TURN.as_mut().unwrap() };
-    turn.init_power = Some(init_power);
-    turn.init_angle = Some(init_angle);
+    turn.init_power = init_power;
+    turn.init_angle = init_angle;
     let mut tank_option: Option<&Tank> = None;
     match turn.active_tank {
         Side::Left => tank_option = Some(&LEFT_TANK),
