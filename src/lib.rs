@@ -424,14 +424,26 @@ pub fn on_animation_frame(timestamp: i32) {
         Side::Left => tank = Some(&LEFT_TANK),
         Side::Right => tank = Some(&RIGHT_TANK),
     }
-    // TODO: animate projectile here
     // There's a projectile velocity value in Config
     //log(&turn.projectile_in_flight.to_string());
     //log(&turn.init_angle.to_string());
+
+    // TODO: grab the image data where the projectile will go next, draw the projectile at that
+    // point, then put the old image data over the spot where the projectile was before it was
+    // moved
     let context = canvas_context();
     context.set_fill_style(&JsValue::from("#FFFFFF"));
     let pp = PROJECTILE_POINT.lock().unwrap();
+    let image_data = context.get_image_data(pp.x, pp.y, 2.0, 2.0);
     context.fill_rect(pp.x, pp.y, 2.0, 2.0);
+
+    let delta = 1.0;
+    context.fill_rect(
+        pp.x + delta * ((timestamp / 500) as f64),
+        pp.y + delta * ((timestamp / 500) as f64),
+        2.0,
+        2.0,
+    );
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
