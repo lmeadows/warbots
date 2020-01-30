@@ -418,7 +418,6 @@ pub fn on_animation_frame(timestamp: i32) {
     if !turn.projectile_in_flight {
         return;
     }
-    log("projectile in flight");
 
     match turn.active_tank {
         Side::Left => tank = Some(&LEFT_TANK),
@@ -440,11 +439,20 @@ pub fn on_animation_frame(timestamp: i32) {
     context.fill_rect(pp.x, pp.y, 2.0, 2.0);
 
     // draw the projectile where it is now
+    get_projectile_position(timestamp);
     let delta = 1.0;
     pp.x = pp.x + delta * ((timestamp / 500) as f64);
     pp.y = pp.y + delta * ((timestamp / 500) as f64);
     context.set_fill_style(&JsValue::from("#FFFFFF"));
     context.fill_rect(pp.x, pp.y, 2.0, 2.0);
+}
+
+fn get_projectile_position(timestamp: i32) {
+    let t = timestamp as f64;
+    let vy = get_angle_rads().sin();
+    let vx = get_angle_rads().cos();
+
+    log(&vy.to_string());
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
@@ -490,6 +498,11 @@ fn set_ballistics_params(init_power: f64, init_angle: f64) {
 
     PROJECTILE_POINT.lock().unwrap().x = x;
     PROJECTILE_POINT.lock().unwrap().y = y;
+}
+
+fn get_angle_rads() -> f64 {
+    // convert degrees to radians
+    (get_angle() as f64) * std::f64::consts::PI / 180.0
 }
 
 #[wasm_bindgen(module = "/www/rust-utils.js")]
