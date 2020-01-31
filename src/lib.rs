@@ -240,6 +240,8 @@ pub struct Turn {
     projectile_in_flight: bool,
     init_power: f64,
     init_angle: f64,
+    // time at which player took a turn
+    timestamp: f64,
 }
 
 enum Side {
@@ -255,12 +257,14 @@ impl Turn {
         let projectile_in_flight = false;
         let init_power = 0.0;
         let init_angle = 0.0;
+        let timestamp = 0.0;
 
         Turn {
             active_tank,
             projectile_in_flight,
             init_power,
             init_angle,
+            timestamp,
         }
     }
 
@@ -419,6 +423,13 @@ pub fn on_animation_frame(timestamp: i32) {
         return;
     }
 
+    // set the timestamp to now if it not already set
+    if turn.timestamp == 0.0 {
+        log("Setting timestamp");
+        log(&timestamp.to_string());
+        turn.timestamp = timestamp as f64;
+    }
+
     match turn.active_tank {
         Side::Left => tank = Some(&LEFT_TANK),
         Side::Right => tank = Some(&RIGHT_TANK),
@@ -435,24 +446,38 @@ pub fn on_animation_frame(timestamp: i32) {
     let pp = unsafe { pp_lock.as_mut().unwrap() };
 
     // re-draw the sky where the projectile was previously
-    context.set_fill_style(&JsValue::from("#000000"));
+    context.set_fill_style(&JsValue::from("#FFFFFF"));
     context.fill_rect(pp.x, pp.y, 2.0, 2.0);
 
     // draw the projectile where it is now
-    get_projectile_position(timestamp);
+    let point = get_projectile_position(
+        tank.unwrap().location.x,
+        tank.unwrap().location.y,
+        timestamp as f64,
+    );
     let delta = 1.0;
-    pp.x = pp.x + delta * ((timestamp / 500) as f64);
-    pp.y = pp.y + delta * ((timestamp / 500) as f64);
+    pp.x = point.x;
+    pp.y = point.y;
+    //log(&format!("X: {}", pp.x));
     context.set_fill_style(&JsValue::from("#FFFFFF"));
     context.fill_rect(pp.x, pp.y, 2.0, 2.0);
 }
 
-fn get_projectile_position(timestamp: i32) {
-    let t = timestamp as f64;
+fn get_projectile_position(x0: f64, y0: f64, timestamp: f64) -> Point {
+    let t0 = unsafe { TURN.as_mut().unwrap().timestamp };
+    // TODO: normalize timestamp by considering the time at which the user fires as being t=0
+    let t = timestamp - t0;
+    // TODO: take power into account
     let vy = get_angle_rads().sin();
     let vx = get_angle_rads().cos();
+    let a: f64 = -0.001;
 
-    log(&vy.to_string());
+    let y = y0 - ((vy * t) + ((0.5) * a) * t.powi(2));
+    let x = vx * t + x0;
+    log(&y0.to_string());
+    log(&y.to_string());
+
+    Point::new(x, y)
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
