@@ -1,4 +1,3 @@
-import "./canvas.css"
 import { Config, start, player_fire } from "warbots";
 
 const config = Config.new();
