@@ -294,6 +294,7 @@ pub struct Config {
     max_angle: u8,
     min_angle: u8,
     projectile_velocity: f64,
+    projectile_speed_modifier: f64,
 }
 
 #[wasm_bindgen]
@@ -310,6 +311,7 @@ impl Config {
         let max_angle = 180;
         let min_angle = 0;
         let projectile_velocity = 0.01;
+        let projectile_speed_modifier = 0.75;
 
         Config {
             width,
@@ -323,6 +325,7 @@ impl Config {
             max_angle,
             min_angle,
             projectile_velocity,
+            projectile_speed_modifier,
         }
     }
 
@@ -434,9 +437,6 @@ pub fn on_animation_frame(timestamp: i32) {
         Side::Left => tank = Some(&LEFT_TANK),
         Side::Right => tank = Some(&RIGHT_TANK),
     }
-    // There's a projectile velocity value in Config
-    //log(&turn.projectile_in_flight.to_string());
-    //log(&turn.init_angle.to_string());
 
     // TODO: grab the image data where the projectile will go next, draw the projectile at that
     // point, then put the old image data over the spot where the projectile was before it was
@@ -446,7 +446,7 @@ pub fn on_animation_frame(timestamp: i32) {
     let pp = unsafe { pp_lock.as_mut().unwrap() };
 
     // re-draw the sky where the projectile was previously
-    context.set_fill_style(&JsValue::from("#FFFFFF"));
+    context.set_fill_style(&JsValue::from("#000000"));
     context.fill_rect(pp.x, pp.y, 2.0, 2.0);
 
     // draw the projectile where it is now
@@ -464,18 +464,24 @@ pub fn on_animation_frame(timestamp: i32) {
 }
 
 fn get_projectile_position(x0: f64, y0: f64, timestamp: f64) -> Point {
-    let t0 = unsafe { TURN.as_mut().unwrap().timestamp };
-    // TODO: normalize timestamp by considering the time at which the user fires as being t=0
-    let t = timestamp - t0;
+    let turn = unsafe { TURN.as_mut().unwrap() };
+    let t0 = turn.timestamp;
+    let t = CONFIG.projectile_speed_modifier * (timestamp - t0);
     // TODO: take power into account
     let vy = get_angle_rads().sin();
-    let vx = get_angle_rads().cos();
+    // multiply by negative 1 to get the correction horizontal direction
+    let vx = -1.0 * get_angle_rads().cos();
     let a: f64 = -0.001;
 
     let y = y0 - ((vy * t) + ((0.5) * a) * t.powi(2));
     let x = vx * t + x0;
     log(&y0.to_string());
     log(&y.to_string());
+
+    // stop processing if the bullet has gone below the bottom of the screen
+    if y > CONFIG.height {
+        turn.projectile_in_flight = false;
+    }
 
     Point::new(x, y)
 }
