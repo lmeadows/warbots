@@ -238,6 +238,7 @@ impl Tank {
 pub struct Turn {
     active_tank: Side,
     projectile_in_flight: bool,
+    init_point: Option<Point>,
     init_power: f64,
     init_angle: f64,
     // time at which player took a turn
@@ -255,6 +256,7 @@ impl Turn {
         // The left tank is the human, who fires first
         let active_tank = Side::Left;
         let projectile_in_flight = false;
+        let init_point = None;
         let init_power = 0.0;
         let init_angle = 0.0;
         let timestamp = 0.0;
@@ -262,6 +264,7 @@ impl Turn {
         Turn {
             active_tank,
             projectile_in_flight,
+            init_point,
             init_power,
             init_angle,
             timestamp,
@@ -293,8 +296,9 @@ pub struct Config {
     min_power: u16,
     max_angle: u8,
     min_angle: u8,
-    projectile_velocity: f64,
     projectile_speed_modifier: f64,
+    projectile_size: f64,
+    power_normalizer: f64,
 }
 
 #[wasm_bindgen]
@@ -310,8 +314,9 @@ impl Config {
         let min_power = 0;
         let max_angle = 180;
         let min_angle = 0;
-        let projectile_velocity = 0.01;
         let projectile_speed_modifier = 0.75;
+        let projectile_size = 2.0;
+        let power_normalizer = 200.0;
 
         Config {
             width,
@@ -324,8 +329,9 @@ impl Config {
             min_power,
             max_angle,
             min_angle,
-            projectile_velocity,
             projectile_speed_modifier,
+            projectile_size,
+            power_normalizer,
         }
     }
 
@@ -365,7 +371,6 @@ impl Config {
 pub struct Projectile {
     point: Point,
     color_hex: String,
-    size: f64,
 }
 
 #[wasm_bindgen]
@@ -375,24 +380,14 @@ impl Projectile {
         let y = LEFT_TANK.location.y - LEFT_TANK.height;
         let point = Point::new(x, y);
         let color_hex = String::from("#FFFFF0");
-        let size = 3.0;
 
-        Projectile {
-            point,
-            color_hex,
-            size,
-        }
+        Projectile { point, color_hex }
     }
     pub fn point(&self) -> Point {
         Point::new(self.point.x, self.point.y)
     }
     pub fn color_hex(&self) -> String {
         String::from(self.color_hex.clone())
-    }
-    pub fn fire(&self, power: f64, angle: f64) {
-        let context = canvas_context();
-        context.set_fill_style(&JsValue::from(&self.color_hex));
-        context.fill_rect(self.point.x, self.point.y, self.size, self.size);
     }
 }
 
@@ -438,29 +433,40 @@ pub fn on_animation_frame(timestamp: i32) {
         Side::Right => tank = Some(&RIGHT_TANK),
     }
 
-    // TODO: grab the image data where the projectile will go next, draw the projectile at that
-    // point, then put the old image data over the spot where the projectile was before it was
-    // moved
     let context = canvas_context();
     let mut pp_lock = PROJECTILE_POINT.lock();
     let pp = unsafe { pp_lock.as_mut().unwrap() };
 
     // re-draw the sky where the projectile was previously
-    context.set_fill_style(&JsValue::from("#000000"));
-    context.fill_rect(pp.x, pp.y, 2.0, 2.0);
+    context.set_fill_style(&JsValue::from("#FFFFFF"));
+    context.fill_rect(pp.x, pp.y, CONFIG.projectile_size, CONFIG.projectile_size);
 
     // draw the projectile where it is now
     let point = get_projectile_position(
-        tank.unwrap().location.x,
-        tank.unwrap().location.y,
+        turn.init_point.as_ref().unwrap().x,
+        turn.init_point.as_ref().unwrap().y,
         timestamp as f64,
     );
-    let delta = 1.0;
     pp.x = point.x;
     pp.y = point.y;
-    //log(&format!("X: {}", pp.x));
+
+    if collision(pp) {
+        turn.projectile_in_flight = false;
+        return;
+    }
     context.set_fill_style(&JsValue::from("#FFFFFF"));
-    context.fill_rect(pp.x, pp.y, 2.0, 2.0);
+    context.fill_rect(pp.x, pp.y, CONFIG.projectile_size, CONFIG.projectile_size);
+}
+
+fn collision(point: &mut std::sync::MutexGuard<Point>) -> bool {
+    let x = point.x;
+    let y = point.y;
+    // terrain collision
+    if TERRAIN.heights[x as usize] <= y {
+        return true;
+    }
+    // TODO: tank collision
+    false
 }
 
 fn get_projectile_position(x0: f64, y0: f64, timestamp: f64) -> Point {
@@ -468,9 +474,10 @@ fn get_projectile_position(x0: f64, y0: f64, timestamp: f64) -> Point {
     let t0 = turn.timestamp;
     let t = CONFIG.projectile_speed_modifier * (timestamp - t0);
     // TODO: take power into account
-    let vy = get_angle_rads().sin();
+    let power = turn.init_power / CONFIG.power_normalizer;
+    let vy = power * get_angle_rads().sin();
     // multiply by negative 1 to get the correction horizontal direction
-    let vx = -1.0 * get_angle_rads().cos();
+    let vx = -1.0 * power * get_angle_rads().cos();
     let a: f64 = -0.001;
 
     let y = y0 - ((vy * t) + ((0.5) * a) * t.powi(2));
@@ -525,10 +532,11 @@ fn set_ballistics_params(init_power: f64, init_angle: f64) {
 
     let tank = tank_option.unwrap();
     let x = tank.location.x + tank.width / 2.0;
-    let y = tank.location.y - tank.height;
+    let y = tank.location.y - tank.height - 5.0;
 
     PROJECTILE_POINT.lock().unwrap().x = x;
     PROJECTILE_POINT.lock().unwrap().y = y;
+    turn.init_point = Some(Point::new(x, y));
 }
 
 fn get_angle_rads() -> f64 {
