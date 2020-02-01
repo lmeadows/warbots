@@ -2,6 +2,7 @@ mod utils;
 
 use lazy_static::lazy_static;
 use std::cell::RefCell;
+use std::cmp;
 use std::f64;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -29,6 +30,7 @@ lazy_static! {
 }
 
 static mut TURN: Option<Turn> = None;
+const AUDIO_BUFFER_SIZE: usize = 8192;
 
 #[wasm_bindgen]
 pub fn start() -> Result<(), JsValue> {
@@ -243,6 +245,10 @@ pub struct Turn {
     init_angle: f64,
     // time at which player took a turn
     timestamp: f64,
+    audio_context: web_sys::AudioContext,
+    audio_buffer: web_sys::AudioBuffer,
+    fire_sound: Vec<f32>,
+    collision_sound: Vec<f32>,
 }
 
 enum Side {
@@ -260,6 +266,23 @@ impl Turn {
         let init_power = 0.0;
         let init_angle = 0.0;
         let timestamp = 0.0;
+        let audio_context = web_sys::AudioContext::new().unwrap();
+        let audio_buffer = audio_context
+            .create_buffer(
+                1,
+                (audio_context.sample_rate() * 2.0) as u32,
+                audio_context.sample_rate(),
+            )
+            .unwrap();
+
+        let mut fire_sound: Vec<f32> = Vec::with_capacity(AUDIO_BUFFER_SIZE);
+        let mut collision_sound: Vec<f32> = Vec::with_capacity(AUDIO_BUFFER_SIZE);
+        for i in 0..AUDIO_BUFFER_SIZE {
+            let fire_sound_data = if i / 600 % 2 == 0 { 0.5 } else { -0.5 };
+            let collision_sound_data = if i / 400 % 5 == 0 { 0.9 } else { -0.9 };
+            fire_sound.push(fire_sound_data);
+            collision_sound.push(collision_sound_data);
+        }
 
         Turn {
             active_tank,
@@ -268,6 +291,10 @@ impl Turn {
             init_power,
             init_angle,
             timestamp,
+            audio_context,
+            audio_buffer,
+            fire_sound,
+            collision_sound,
         }
     }
 
@@ -447,11 +474,19 @@ pub fn on_animation_frame(timestamp: i32) {
         turn.init_point.as_ref().unwrap().y,
         timestamp as f64,
     );
+
+    // check once again that the projectile is in the game area
+    if !turn.projectile_in_flight {
+        return;
+    }
+
     pp.x = point.x;
     pp.y = point.y;
 
     if collision(pp) {
         turn.projectile_in_flight = false;
+        play_audio(&turn.collision_sound);
+        mutate_terrain(point.x as usize);
         return;
     }
     context.set_fill_style(&JsValue::from("#FFFFFF"));
@@ -467,6 +502,16 @@ fn collision(point: &mut std::sync::MutexGuard<Point>) -> bool {
     }
     // TODO: tank collision
     false
+}
+
+fn mutate_terrain(x: usize) {
+    let blast_radius: usize = 10;
+    let min_index = cmp::max(0, x - blast_radius);
+    let max_index = cmp::min(CONFIG.width as usize, x + blast_radius);
+    log("TERRAIN HIT!");
+    for i in min_index..max_index {
+        //TERRAIN.heights[i] = TERRAIN.heights[i] - 10.0;
+    }
 }
 
 fn get_projectile_position(x0: f64, y0: f64, timestamp: f64) -> Point {
@@ -485,8 +530,8 @@ fn get_projectile_position(x0: f64, y0: f64, timestamp: f64) -> Point {
     log(&y0.to_string());
     log(&y.to_string());
 
-    // stop processing if the bullet has gone below the bottom of the screen
-    if y > CONFIG.height {
+    // stop processing if the bullet has gone below or beyond the screen
+    if y > CONFIG.height || x <= 0.0 || x >= CONFIG.width {
         turn.projectile_in_flight = false;
     }
 
@@ -517,6 +562,7 @@ fn handle_player_fire_attempt() {
     // TODO: validate that it's the player's turn, and that he has NOT already fired
     set_ballistics_params(get_power() as f64, get_angle() as f64);
     let turn = unsafe { TURN.as_mut().unwrap() };
+    play_audio(&turn.fire_sound);
     turn.take();
 }
 
@@ -537,6 +583,25 @@ fn set_ballistics_params(init_power: f64, init_angle: f64) {
     PROJECTILE_POINT.lock().unwrap().x = x;
     PROJECTILE_POINT.lock().unwrap().y = y;
     turn.init_point = Some(Point::new(x, y));
+}
+
+fn play_audio(sample: &[f32]) {
+    let turn = unsafe { TURN.as_mut().unwrap() };
+    let context = &turn.audio_context;
+    let buffer = &turn.audio_buffer;
+
+    let source = context.create_buffer_source().unwrap();
+
+    // FIXME: copy_to_channel requires a mutable reference for some reason
+    let mut_sample = unsafe { (sample as *const [f32] as *mut [f32]).as_mut().unwrap() };
+
+    buffer.copy_to_channel(mut_sample, 0).unwrap();
+    source.set_buffer(Some(&buffer));
+    source
+        .connect_with_audio_node(&context.destination())
+        .unwrap();
+    context.resume().unwrap();
+    source.start().unwrap();
 }
 
 fn get_angle_rads() -> f64 {
