@@ -278,7 +278,7 @@ impl Turn {
         let mut fire_sound: Vec<f32> = Vec::with_capacity(AUDIO_BUFFER_SIZE);
         let mut collision_sound: Vec<f32> = Vec::with_capacity(AUDIO_BUFFER_SIZE);
         for i in 0..AUDIO_BUFFER_SIZE {
-            let fire_sound_data = if i / 600 % 2 == 0 { 0.5 } else { -0.5 };
+            let fire_sound_data = ((i.pow(2) - i.pow(3)) as f32) / ((i.pow(3)) as f32);
             let collision_sound_data = if i / 400 % 5 == 0 { 0.9 } else { -0.9 };
             fire_sound.push(fire_sound_data);
             collision_sound.push(collision_sound_data);
@@ -527,8 +527,6 @@ fn get_projectile_position(x0: f64, y0: f64, timestamp: f64) -> Point {
 
     let y = y0 - ((vy * t) + ((0.5) * a) * t.powi(2));
     let x = vx * t + x0;
-    log(&y0.to_string());
-    log(&y.to_string());
 
     // stop processing if the bullet has gone below or beyond the screen
     if y > CONFIG.height || x <= 0.0 || x >= CONFIG.width {
