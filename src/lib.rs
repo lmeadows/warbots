@@ -16,16 +16,7 @@ extern "C" {
 }
 
 lazy_static! {
-    static ref TERRAIN: Terrain = Terrain::new();
     static ref CONFIG: Config = Config::new();
-    static ref LEFT_TANK: Tank = Tank::new(Point::new(
-        CONFIG.tank_left_pos(),
-        TERRAIN.heights()[CONFIG.tank_left_pos() as usize]
-    ));
-    static ref RIGHT_TANK: Tank = Tank::new(Point::new(
-        CONFIG.tank_right_pos(),
-        TERRAIN.heights()[CONFIG.tank_right_pos() as usize]
-    ));
     static ref PROJECTILE_POINT: Mutex<Point> = Mutex::new(Point::new(0.0, 0.0));
 }
 
@@ -60,11 +51,12 @@ pub fn start() -> Result<(), JsValue> {
 
 use rand::Rng;
 pub fn draw_terrain() {
+    let turn = unsafe { TURN.as_mut().unwrap() };
     let context = canvas_context();
-    let color = JsValue::from(TERRAIN.color_hex());
+    let color = JsValue::from(turn.terrain.color_hex());
     context.set_stroke_style(&color);
 
-    let heights = TERRAIN.heights();
+    let heights = &turn.terrain.heights;
 
     let left_tank_height = heights[CONFIG.tank_left_pos() as usize];
     let right_tank_height = heights[CONFIG.tank_right_pos() as usize];
@@ -79,10 +71,10 @@ pub fn draw_terrain() {
             height = right_tank_height;
         }
         if x == CONFIG.tank_left_pos() {
-            LEFT_TANK.draw();
+            turn.terrain.left_tank.draw();
         }
         if x == CONFIG.tank_right_pos() {
-            RIGHT_TANK.draw();
+            turn.terrain.right_tank.draw();
         }
 
         context.begin_path();
@@ -124,14 +116,16 @@ impl Point {
 
 #[wasm_bindgen]
 pub struct Terrain {
-    heights: [f64; 900],
+    heights: Vec<f64>,
     color_hex: String,
+    left_tank: Tank,
+    right_tank: Tank,
 }
 
 use rand::seq::SliceRandom;
 impl Terrain {
     pub fn new() -> Terrain {
-        let mut heights: [f64; 900] = [0f64; 900];
+        let mut heights: Vec<f64> = Vec::new();
         const STEP_MAX: f64 = 2.5;
         const STEP_CHANGE: f64 = 1.0;
         // minimum distance from the top of canvas to a mountain peak
@@ -148,7 +142,7 @@ impl Terrain {
         let mut slope: f64 = (y2 * STEP_MAX) * 2.0 - STEP_MAX;
 
         // create the landscape
-        for x in 0..heights.len() {
+        for x in 0..(CONFIG.width as usize) {
             // change height and slope
             terrain_height += slope;
             let y3: f64 = rng.gen();
@@ -173,8 +167,16 @@ impl Terrain {
                 slope *= -1.0;
             }
 
-            heights[x] = terrain_height as f64;
+            heights.push(terrain_height as f64);
         }
+        let left_tank: Tank = Tank::new(Point::new(
+            CONFIG.tank_left_pos(),
+            heights[CONFIG.tank_left_pos() as usize],
+        ));
+        let right_tank: Tank = Tank::new(Point::new(
+            CONFIG.tank_right_pos(),
+            heights[CONFIG.tank_right_pos() as usize],
+        ));
 
         let terrain_colors: Vec<String> = vec![
             "#27FF00", "#43AB08", "#9D5109", "#EABC00", "#00960E", "#CCCCCC", "#FFFFFF", "#F7CAA6",
@@ -191,11 +193,13 @@ impl Terrain {
         Terrain {
             heights,
             color_hex: color[0].clone(),
+            left_tank,
+            right_tank,
         }
     }
 
-    pub fn heights(&self) -> [f64; 900] {
-        self.heights
+    pub fn heights(&self) -> &Vec<f64> {
+        &self.heights
     }
 
     pub fn color_hex(&self) -> String {
@@ -238,6 +242,7 @@ impl Tank {
 
 #[wasm_bindgen]
 pub struct Turn {
+    terrain: Terrain,
     active_tank: Side,
     projectile_in_flight: bool,
     init_point: Option<Point>,
@@ -259,6 +264,7 @@ enum Side {
 #[wasm_bindgen]
 impl Turn {
     pub fn new() -> Turn {
+        let terrain = Terrain::new();
         // The left tank is the human, who fires first
         let active_tank = Side::Left;
         let projectile_in_flight = false;
@@ -285,6 +291,7 @@ impl Turn {
         }
 
         Turn {
+            terrain,
             active_tank,
             projectile_in_flight,
             init_point,
@@ -394,6 +401,7 @@ impl Config {
     }
 }
 
+/*
 #[wasm_bindgen]
 pub struct Projectile {
     point: Point,
@@ -402,9 +410,9 @@ pub struct Projectile {
 
 #[wasm_bindgen]
 impl Projectile {
-    pub fn new() -> Projectile {
-        let x = LEFT_TANK.location.x + LEFT_TANK.width / 2.0;
-        let y = LEFT_TANK.location.y - LEFT_TANK.height;
+    pub fn new(tank: Tank) -> Projectile {
+        let x = tank.location.x + tank.width / 2.0;
+        let y = tank.location.y - tank.height;
         let point = Point::new(x, y);
         let color_hex = String::from("#FFFFF0");
 
@@ -417,6 +425,7 @@ impl Projectile {
         String::from(self.color_hex.clone())
     }
 }
+*/
 
 fn document() -> web_sys::Document {
     let document = web_sys::window().unwrap().document().unwrap();
@@ -450,14 +459,12 @@ pub fn on_animation_frame(timestamp: i32) {
 
     // set the timestamp to now if it not already set
     if turn.timestamp == 0.0 {
-        log("Setting timestamp");
-        log(&timestamp.to_string());
         turn.timestamp = timestamp as f64;
     }
 
     match turn.active_tank {
-        Side::Left => tank = Some(&LEFT_TANK),
-        Side::Right => tank = Some(&RIGHT_TANK),
+        Side::Left => tank = Some(&turn.terrain.left_tank),
+        Side::Right => tank = Some(&turn.terrain.right_tank),
     }
 
     let context = canvas_context();
@@ -483,7 +490,7 @@ pub fn on_animation_frame(timestamp: i32) {
     pp.x = point.x;
     pp.y = point.y;
 
-    if collision(pp) {
+    if collision(&turn.terrain, pp) {
         turn.projectile_in_flight = false;
         play_audio(&turn.collision_sound);
         mutate_terrain(point.x as usize);
@@ -493,11 +500,11 @@ pub fn on_animation_frame(timestamp: i32) {
     context.fill_rect(pp.x, pp.y, CONFIG.projectile_size, CONFIG.projectile_size);
 }
 
-fn collision(point: &mut std::sync::MutexGuard<Point>) -> bool {
-    let x = point.x;
+fn collision(terrain: &Terrain, point: &mut std::sync::MutexGuard<Point>) -> bool {
+    let x = point.x as usize;
     let y = point.y;
     // terrain collision
-    if TERRAIN.heights[x as usize] <= y {
+    if terrain.heights[x] <= y {
         return true;
     }
     // TODO: tank collision
@@ -508,9 +515,10 @@ fn mutate_terrain(x: usize) {
     let blast_radius: usize = 10;
     let min_index = cmp::max(0, x - blast_radius);
     let max_index = cmp::min(CONFIG.width as usize, x + blast_radius);
-    log("TERRAIN HIT!");
+    let turn = unsafe { TURN.as_mut().unwrap() };
     for i in min_index..max_index {
-        //TERRAIN.heights[i] = TERRAIN.heights[i] - 10.0;
+        turn.terrain.heights[i] = turn.terrain.heights[i] + 10.0;
+        // TODO: see if we can do decent terrain mutation without switching to WebGL
     }
 }
 
@@ -570,8 +578,8 @@ fn set_ballistics_params(init_power: f64, init_angle: f64) {
     turn.init_angle = init_angle;
     let mut tank_option: Option<&Tank> = None;
     match turn.active_tank {
-        Side::Left => tank_option = Some(&LEFT_TANK),
-        Side::Right => tank_option = Some(&RIGHT_TANK),
+        Side::Left => tank_option = Some(&turn.terrain.left_tank),
+        Side::Right => tank_option = Some(&turn.terrain.right_tank),
     }
 
     let tank = tank_option.unwrap();
