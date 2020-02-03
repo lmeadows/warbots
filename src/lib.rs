@@ -357,7 +357,7 @@ impl Config {
         let max_angle = 180;
         let min_angle = 0;
         let projectile_speed_modifier = 0.75;
-        let projectile_size = 2.0;
+        let projectile_size = 3.0;
         let power_normalizer = 200.0;
 
         Config {
@@ -480,8 +480,10 @@ pub fn on_animation_frame(timestamp: i32) {
     let pp = unsafe { pp_lock.as_mut().unwrap() };
 
     // re-draw the sky where the projectile was previously
-    context.set_fill_style(&JsValue::from("#FFFFFF"));
-    context.fill_rect(pp.x, pp.y, CONFIG.projectile_size, CONFIG.projectile_size);
+    context.set_fill_style(&JsValue::from("#000000"));
+    for i in 0..4 {
+        context.fill_rect(pp.x, pp.y, CONFIG.projectile_size, CONFIG.projectile_size);
+    }
 
     // draw the projectile where it is now
     let point = get_projectile_position(
