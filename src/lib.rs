@@ -26,7 +26,7 @@ const AUDIO_BUFFER_SIZE: usize = 8192;
 #[wasm_bindgen]
 pub fn start() -> Result<(), JsValue> {
     unsafe { TURN = Some(Turn::new()) };
-    draw_terrain();
+    draw_terrain(0, CONFIG.width as usize);
 
     let window = web_sys::window().unwrap();
 
@@ -50,17 +50,17 @@ pub fn start() -> Result<(), JsValue> {
 }
 
 use rand::Rng;
-pub fn draw_terrain() {
+pub fn draw_terrain(min_index: usize, max_index: usize) {
     let turn = unsafe { TURN.as_mut().unwrap() };
     let context = canvas_context();
-    let color = JsValue::from(turn.terrain.color_hex());
-    context.set_stroke_style(&color);
+    let terrain_color = JsValue::from(turn.terrain.color_hex());
+    let sky_color = JsValue::from("#000000");
 
     let heights = &turn.terrain.heights;
 
     let left_tank_height = heights[CONFIG.tank_left_pos() as usize];
     let right_tank_height = heights[CONFIG.tank_right_pos() as usize];
-    for i in 0..heights.len() {
+    for i in min_index..max_index {
         let x = i as f64;
         // make the terrain flat where the tanks sit
         let mut height = heights[i];
@@ -70,17 +70,25 @@ pub fn draw_terrain() {
         if x >= CONFIG.tank_right_pos() && x < CONFIG.tank_right_pos() + CONFIG.tank_width() {
             height = right_tank_height;
         }
-        if x == CONFIG.tank_left_pos() {
-            turn.terrain.left_tank.draw();
-        }
-        if x == CONFIG.tank_right_pos() {
-            turn.terrain.right_tank.draw();
-        }
 
-        context.begin_path();
-        context.move_to(x as f64, 500.0);
-        context.line_to(x as f64, height);
-        context.stroke();
+        // draw the line twice to get brighter coloring
+        for i in 0..4 {
+            // draw the vertical line for the terrain
+            context.set_stroke_style(&terrain_color);
+            context.begin_path();
+            context.move_to(x as f64, 500.0);
+            context.line_to(x as f64, height);
+            context.stroke();
+
+            // draw the vertical line for the sky
+            context.set_stroke_style(&sky_color);
+            context.begin_path();
+            context.move_to(x as f64, height);
+            context.line_to(x as f64, 0.0);
+            context.stroke();
+        }
+        turn.terrain.left_tank.draw();
+        turn.terrain.right_tank.draw();
     }
 }
 
@@ -512,14 +520,15 @@ fn collision(terrain: &Terrain, point: &mut std::sync::MutexGuard<Point>) -> boo
 }
 
 fn mutate_terrain(x: usize) {
-    let blast_radius: usize = 10;
+    let blast_radius: usize = 30;
     let min_index = cmp::max(0, x - blast_radius);
     let max_index = cmp::min(CONFIG.width as usize, x + blast_radius);
     let turn = unsafe { TURN.as_mut().unwrap() };
     for i in min_index..max_index {
-        turn.terrain.heights[i] = turn.terrain.heights[i] + 10.0;
-        // TODO: see if we can do decent terrain mutation without switching to WebGL
+        let x: f64 = i as f64 - min_index as f64 - (blast_radius as f64 / 2.0);
+        turn.terrain.heights[i] = turn.terrain.heights[i] + 10.0 + 0.8 * x + (x / 40.0).powi(2);
     }
+    draw_terrain(min_index, max_index);
 }
 
 fn get_projectile_position(x0: f64, y0: f64, timestamp: f64) -> Point {
