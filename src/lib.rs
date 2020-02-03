@@ -87,9 +87,13 @@ pub fn draw_terrain(min_index: usize, max_index: usize) {
             context.line_to(x as f64, 0.0);
             context.stroke();
         }
-        turn.terrain.left_tank.draw();
-        turn.terrain.right_tank.draw();
     }
+    // make sure that tank y-coords are up to date (in case terrain was damaged where tank sits)
+    turn.terrain.left_tank.location.y = turn.terrain.heights[CONFIG.tank_left_pos() as usize];
+    turn.terrain.right_tank.location.y = turn.terrain.heights[CONFIG.tank_right_pos() as usize];
+    // re-draw the tanks at the new locations
+    turn.terrain.left_tank.draw();
+    turn.terrain.right_tank.draw();
 }
 
 pub fn draw_tank(context: &web_sys::CanvasRenderingContext2d, point: Point) {
