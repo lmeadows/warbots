@@ -54,7 +54,7 @@ pub fn draw_terrain(min_index: usize, max_index: usize) {
     let turn = unsafe { TURN.as_mut().unwrap() };
     let context = canvas_context();
     let terrain_color = JsValue::from(turn.terrain.color_hex());
-    let sky_color = JsValue::from("#000000");
+    let sky_color = JsValue::from(turn.terrain.sky_color_hex());
 
     let heights = &turn.terrain.heights;
 
@@ -130,6 +130,7 @@ impl Point {
 pub struct Terrain {
     heights: Vec<f64>,
     color_hex: String,
+    sky_color_hex: String,
     left_tank: Tank,
     right_tank: Tank,
 }
@@ -202,9 +203,16 @@ impl Terrain {
             .choose_multiple(&mut rand::thread_rng(), 1)
             .collect();
 
+        let sky_colors: Vec<String> = vec!["#000000"].iter().map(|&s| s.into()).collect();
+
+        let sky_color: Vec<_> = sky_colors
+            .choose_multiple(&mut rand::thread_rng(), 1)
+            .collect();
+
         Terrain {
             heights,
             color_hex: color[0].clone(),
+            sky_color_hex: sky_color[0].clone(),
             left_tank,
             right_tank,
         }
@@ -216,6 +224,10 @@ impl Terrain {
 
     pub fn color_hex(&self) -> String {
         String::from(self.color_hex.clone())
+    }
+
+    pub fn sky_color_hex(&self) -> String {
+        String::from(self.sky_color_hex.clone())
     }
 }
 
@@ -413,32 +425,6 @@ impl Config {
     }
 }
 
-/*
-#[wasm_bindgen]
-pub struct Projectile {
-    point: Point,
-    color_hex: String,
-}
-
-#[wasm_bindgen]
-impl Projectile {
-    pub fn new(tank: Tank) -> Projectile {
-        let x = tank.location.x + tank.width / 2.0;
-        let y = tank.location.y - tank.height;
-        let point = Point::new(x, y);
-        let color_hex = String::from("#FFFFF0");
-
-        Projectile { point, color_hex }
-    }
-    pub fn point(&self) -> Point {
-        Point::new(self.point.x, self.point.y)
-    }
-    pub fn color_hex(&self) -> String {
-        String::from(self.color_hex.clone())
-    }
-}
-*/
-
 fn document() -> web_sys::Document {
     let document = web_sys::window().unwrap().document().unwrap();
     document
@@ -484,7 +470,7 @@ pub fn on_animation_frame(timestamp: i32) {
     let pp = unsafe { pp_lock.as_mut().unwrap() };
 
     // re-draw the sky where the projectile was previously
-    context.set_fill_style(&JsValue::from("#000000"));
+    context.set_fill_style(&JsValue::from(turn.terrain.sky_color_hex()));
     for i in 0..4 {
         context.fill_rect(pp.x, pp.y, CONFIG.projectile_size, CONFIG.projectile_size);
     }
