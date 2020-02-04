@@ -236,6 +236,8 @@ pub struct Tank {
     width: f64,
     height: f64,
     location: Point,
+    turret_length: f64,
+    turret_width: f64,
 }
 
 #[wasm_bindgen]
@@ -244,10 +246,14 @@ impl Tank {
         let width = CONFIG.tank_width();
         let height = CONFIG.tank_height();
         let location = point;
+        let turret_length = 8.0;
+        let turret_width = 1.8;
         Tank {
             width,
             height,
             location,
+            turret_length,
+            turret_width,
         }
     }
 
@@ -261,6 +267,20 @@ impl Tank {
             CONFIG.tank_width(),
             CONFIG.tank_height(),
         );
+        self._draw_turret(&context);
+    }
+    fn _draw_turret(&self, context: &web_sys::CanvasRenderingContext2d) {
+        context.set_stroke_style(&JsValue::from("#FF0000"));
+        context.set_line_width(self.turret_width);
+        context.begin_path();
+        let x1 = self.location.x + CONFIG.tank_width / 2.0;
+        let y1 = self.location.y - CONFIG.tank_height;
+        let angle = get_angle_rads() as f64;
+        let x2 = x1 - self.turret_length * angle.cos();
+        let y2 = y1 - self.turret_length * angle.sin();
+        context.move_to(x1, y1);
+        context.line_to(x2, y2);
+        context.stroke();
     }
 }
 
