@@ -238,6 +238,7 @@ pub struct Tank {
     location: Point,
     turret_length: f64,
     turret_width: f64,
+    turret_location: Option<Point>,
 }
 
 #[wasm_bindgen]
@@ -248,16 +249,18 @@ impl Tank {
         let location = point;
         let turret_length = 8.0;
         let turret_width = 1.8;
+        let turret_location: Option<Point> = None;
         Tank {
             width,
             height,
             location,
             turret_length,
             turret_width,
+            turret_location,
         }
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&mut self) {
         let context = canvas_context();
         context.set_fill_style(&JsValue::from("#FF0000"));
         context.begin_path();
@@ -269,7 +272,7 @@ impl Tank {
         );
         self._draw_turret(&context);
     }
-    fn _draw_turret(&self, context: &web_sys::CanvasRenderingContext2d) {
+    fn _draw_turret(&mut self, context: &web_sys::CanvasRenderingContext2d) {
         context.set_stroke_style(&JsValue::from("#FF0000"));
         context.set_line_width(self.turret_width);
         context.begin_path();
@@ -279,7 +282,6 @@ impl Tank {
 
         let mut modifier = 1.0;
         if self.location.x == CONFIG.tank_right_pos {
-            log("righ ttank!");
             modifier = -1.0;
         }
         let x2 = x1 - self.turret_length * modifier * angle.cos();
@@ -287,6 +289,8 @@ impl Tank {
         context.move_to(x1, y1);
         context.line_to(x2, y2);
         context.stroke();
+
+        self.turret_location = Some(Point::new(x2, y2));
     }
 }
 
@@ -542,7 +546,6 @@ fn mutate_terrain(x: f64) {
     let min_index = cmp::max(0, (x - blast_radius) as usize);
     let max_index = cmp::min(CONFIG.width as usize, (x + blast_radius) as usize);
     let midpoint: f64 = ((max_index - min_index) as f64) / 2.0;
-    log(&format!("midpoint: min {}, max {}", min_index, max_index));
 
     let turn = unsafe { TURN.as_mut().unwrap() };
     for i in min_index..max_index {
@@ -610,8 +613,9 @@ fn set_ballistics_params(init_power: f64, init_angle: f64) {
     }
 
     let tank = tank_option.unwrap();
-    let x = tank.location.x + tank.width / 2.0;
-    let y = tank.location.y - tank.height - 5.0;
+    let turret_location = tank.turret_location.as_ref().unwrap();
+    let x = turret_location.x;
+    let y = turret_location.y + CONFIG.projectile_size;
 
     PROJECTILE_POINT.lock().unwrap().x = x;
     PROJECTILE_POINT.lock().unwrap().y = y;
