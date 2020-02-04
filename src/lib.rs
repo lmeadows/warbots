@@ -276,7 +276,13 @@ impl Tank {
         let x1 = self.location.x + CONFIG.tank_width / 2.0;
         let y1 = self.location.y - CONFIG.tank_height;
         let angle = get_angle_rads() as f64;
-        let x2 = x1 - self.turret_length * angle.cos();
+
+        let mut modifier = 1.0;
+        if self.location.x == CONFIG.tank_right_pos {
+            log("righ ttank!");
+            modifier = -1.0;
+        }
+        let x2 = x1 - self.turret_length * modifier * angle.cos();
         let y2 = y1 - self.turret_length * angle.sin();
         context.move_to(x1, y1);
         context.line_to(x2, y2);
@@ -513,7 +519,7 @@ pub fn on_animation_frame(timestamp: i32) {
     if collision(&turn.terrain, pp) {
         turn.projectile_in_flight = false;
         play_audio(&turn.collision_sound);
-        mutate_terrain(point.x as usize);
+        mutate_terrain(point.x);
         return;
     }
     context.set_fill_style(&JsValue::from("#FFFFFF"));
@@ -531,14 +537,18 @@ fn collision(terrain: &Terrain, point: &mut std::sync::MutexGuard<Point>) -> boo
     false
 }
 
-fn mutate_terrain(x: usize) {
-    let blast_radius: usize = 30;
-    let min_index = cmp::max(0, x - blast_radius);
-    let max_index = cmp::min(CONFIG.width as usize, x + blast_radius);
+fn mutate_terrain(x: f64) {
+    let blast_radius: f64 = 30.0;
+    let min_index = cmp::max(0, (x - blast_radius) as usize);
+    let max_index = cmp::min(CONFIG.width as usize, (x + blast_radius) as usize);
+    let midpoint: f64 = ((max_index - min_index) as f64) / 2.0;
+    log(&format!("midpoint: min {}, max {}", min_index, max_index));
+
     let turn = unsafe { TURN.as_mut().unwrap() };
     for i in min_index..max_index {
-        let x: f64 = i as f64 - min_index as f64 - (blast_radius as f64 / 2.0);
-        turn.terrain.heights[i] = turn.terrain.heights[i] + 10.0 + 0.8 * x + (x / 40.0).powi(2);
+        let x: f64 = i as f64 - min_index as f64 - midpoint;
+        turn.terrain.heights[i] =
+            turn.terrain.heights[i] + (blast_radius.powi(2) - x.powi(2)) / 15.0;
     }
     draw_terrain(min_index, max_index);
 }
@@ -574,10 +584,6 @@ fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
 
 fn on_key(key: u32, state: bool) {
     const KEY_SPACE: u32 = 32;
-    const KEY_LEFT: u32 = 37;
-    const KEY_UP: u32 = 38;
-    const KEY_RIGHT: u32 = 39;
-    const KEY_DOWN: u32 = 40;
 
     match key {
         KEY_SPACE => handle_player_fire_attempt(),
