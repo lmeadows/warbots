@@ -247,7 +247,7 @@ impl Tank {
         let width = CONFIG.tank_width();
         let height = CONFIG.tank_height();
         let location = point;
-        let turret_length = 8.0;
+        let turret_length = CONFIG.turret_length;
         let turret_width = 1.8;
         let turret_location: Option<Point> = None;
         Tank {
@@ -387,6 +387,7 @@ pub struct Config {
     projectile_speed_modifier: f64,
     projectile_size: f64,
     power_normalizer: f64,
+    turret_length: f64,
 }
 
 #[wasm_bindgen]
@@ -405,6 +406,7 @@ impl Config {
         let projectile_speed_modifier = 0.75;
         let projectile_size = 3.0;
         let power_normalizer = 200.0;
+        let turret_length = 8.0;
 
         Config {
             width,
@@ -420,6 +422,7 @@ impl Config {
             projectile_speed_modifier,
             projectile_size,
             power_normalizer,
+            turret_length,
         }
     }
 
@@ -587,11 +590,25 @@ fn request_animation_frame(f: &Closure<dyn FnMut(i32)>) {
 
 fn on_key(key: u32, state: bool) {
     const KEY_SPACE: u32 = 32;
+    const KEY_LEFT: u32 = 37;
+    const KEY_RIGHT: u32 = 39;
 
     match key {
         KEY_SPACE => handle_player_fire_attempt(),
+        KEY_LEFT => handle_player_aim_change(),
+        KEY_RIGHT => handle_player_aim_change(),
         _ => (),
     };
+}
+
+fn handle_player_aim_change() {
+    let x0 = (CONFIG.tank_left_pos - CONFIG.turret_length) as usize;
+    let x1 = (CONFIG.tank_left_pos + CONFIG.tank_width + CONFIG.turret_length) as usize;
+    draw_terrain(x0, x1);
+
+    let x0 = CONFIG.tank_right_pos as usize;
+    let x1 = (CONFIG.tank_right_pos + CONFIG.tank_width) as usize;
+    draw_terrain(x0, x1);
 }
 
 fn handle_player_fire_attempt() {
